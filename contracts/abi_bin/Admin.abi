@@ -1,0 +1,1 @@
+[{"constant":false,"inputs":[{"name":"txdata","type":"bytes"}],"name":"changenode","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"}]
