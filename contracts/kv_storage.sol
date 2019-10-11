@@ -1,4 +1,4 @@
-pragma solidity ^0.4.25;
+pragma solidity ^0.5.0;
 
 contract KvStorage {
 
@@ -16,13 +16,13 @@ contract KvStorage {
         return db[key];
     }
 
-    function batchSet(bytes32[] keys, uint256[] values) public {
+    function batchSet(bytes32[] memory keys, uint256[] memory values) public {
         for (uint i = 0; i < keys.length; i++) {
             db[keys[i]] = values[i];
         }
     }
 
-    function batchGet(bytes32[] keys) view public returns (uint[] memory){
+    function batchGet(bytes32[] memory keys) view public returns (uint[] memory){
 
         uint[] memory values = new uint[](keys.length);
         for (uint i = 0; i < keys.length; i ++) {

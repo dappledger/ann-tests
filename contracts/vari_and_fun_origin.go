@@ -22,19 +22,19 @@ import (
 )
 
 // VariAndFunOriginABI is the input ABI used to generate the binding from.
-const VariAndFunOriginABI = "[{\"constant\":true,\"inputs\":[],\"name\":\"getOrigin\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"testSelfdestruct\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"name\":\"_addr\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}]"
+const VariAndFunOriginABI = "[{\"constant\":true,\"inputs\":[{\"name\":\"_addr\",\"type\":\"address\"}],\"name\":\"getOrigin\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"testSelfdestruct\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
 // VariAndFunOriginBin is the compiled bytecode used for deploying new contracts.
-const VariAndFunOriginBin = `608060405234801561001057600080fd5b506040516020806102b183398101806040528101908080519060200190929190505050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555033600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550506101ed806100c46000396000f30060806040526004361061004c576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063df1f29ee14610051578063e8fd23cb146100a8575b600080fd5b34801561005d57600080fd5b506100666100bf565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b3480156100b457600080fd5b506100bd610186565b005b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663df1f29ee6040518163ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401602060405180830381600087803b15801561014657600080fd5b505af115801561015a573d6000803e3d6000fd5b505050506040513d602081101561017057600080fd5b8101908080519060200190929190505050905090565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff00a165627a7a7230582043a9116a1ee1e0630c42ac124d9603930452a1d96796282995365976d60ef82c0029`
+const VariAndFunOriginBin = `608060405234801561001057600080fd5b506101b0806100206000396000f3fe60806040526004361061002f5760003560e01c63ffffffff168063cb1149d314610034578063e8fd23cb146100c5575b600080fd5b34801561004057600080fd5b506100836004803603602081101561005757600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506100dc565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b3480156100d157600080fd5b506100da61016b565b005b6000808290508073ffffffffffffffffffffffffffffffffffffffff1663df1f29ee6040518163ffffffff1660e01b815260040160206040518083038186803b15801561012857600080fd5b505afa15801561013c573d6000803e3d6000fd5b505050506040513d602081101561015257600080fd5b8101908080519060200190929190505050915050919050565b3373ffffffffffffffffffffffffffffffffffffffff16fffea165627a7a723058208b25bb190cb93764e77e1b2b3616cf63986a1977057bfc161f0154ec057d45cc0029`
 
 // DeployVariAndFunOrigin deploys a new Ethereum contract, binding an instance of VariAndFunOrigin to it.
-func DeployVariAndFunOrigin(goSDK *sdk.GoSDK, auth sdk.AccountBase, _addr common.Address) (common.Hash, *VariAndFunOrigin, error) {
+func DeployVariAndFunOrigin(goSDK *sdk.GoSDK, auth sdk.AccountBase) (common.Hash, *VariAndFunOrigin, error) {
 
 	cc := sdk.ContractCreate{
 		AccountBase: auth,
 		Code:        VariAndFunOriginBin,
 		ABI:         VariAndFunOriginABI,
-		Params:      []interface{}{_addr},
+		Params:      []interface{}{},
 	}
 	ret, err := goSDK.ContractCreate(&cc)
 	if err != nil {
@@ -60,7 +60,7 @@ func (_VariAndFunOrigin *VariAndFunOrigin) GetAddress() common.Address {
 	return _VariAndFunOrigin.address
 }
 
-func (_VariAndFunOrigin *VariAndFunOrigin) GetOrigin(auth sdk.AccountBase) (common.Address, error) {
+func (_VariAndFunOrigin *VariAndFunOrigin) GetOrigin(auth sdk.AccountBase, _addr common.Address) (common.Address, error) {
 
 	var (
 		ret0 common.Address
@@ -70,7 +70,7 @@ func (_VariAndFunOrigin *VariAndFunOrigin) GetOrigin(auth sdk.AccountBase) (comm
 		Contract:    _VariAndFunOrigin.address.Hex(),
 		ABI:         VariAndFunOriginABI,
 		Method:      "getOrigin",
-		Params:      []interface{}{},
+		Params:      []interface{}{_addr},
 	}
 
 	ret, err := _VariAndFunOrigin.cli.ContractRead(&m)
@@ -80,7 +80,7 @@ func (_VariAndFunOrigin *VariAndFunOrigin) GetOrigin(auth sdk.AccountBase) (comm
 	return ret0, err
 }
 
-func (_VariAndFunOrigin *VariAndFunOrigin) GetOriginByHeight(auth sdk.AccountBase, height uint64) (common.Address, error) {
+func (_VariAndFunOrigin *VariAndFunOrigin) GetOriginByHeight(auth sdk.AccountBase, _addr common.Address, height uint64) (common.Address, error) {
 	var (
 		ret0 common.Address
 	)
@@ -89,7 +89,7 @@ func (_VariAndFunOrigin *VariAndFunOrigin) GetOriginByHeight(auth sdk.AccountBas
 		Contract:    _VariAndFunOrigin.address.Hex(),
 		ABI:         VariAndFunOriginABI,
 		Method:      "getOrigin",
-		Params:      []interface{}{},
+		Params:      []interface{}{_addr},
 	}
 
 	ret, err := _VariAndFunOrigin.cli.ContractReadByHeight(&m, height)

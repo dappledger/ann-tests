@@ -420,8 +420,9 @@ var _ = Describe("Tests Contracts", func() {
 			admin sdk.Account
 			user  sdk.Account
 
-			variAndFun *contracts.VariAndFun
-			dataBytes  = common.Hex2Bytes("test")
+			variAndFun       *contracts.VariAndFun
+			variAndFunOrigin *contracts.VariAndFunOrigin
+			dataBytes        = common.Hex2Bytes("test")
 		)
 
 		const (
@@ -636,6 +637,52 @@ var _ = Describe("Tests Contracts", func() {
 			Expect(err).To(BeNil())
 			Expect(addr).To(Equal(variAndFun.GetAddress()))
 		})
+
+		It("create2", func() {
+			nonce++
+			auth := sdk.AccountBase{Nonce: nonce, PrivKey: admin.Privkey}
+
+			binBytes := common.Hex2Bytes(contracts.VariAndFunOriginBin)
+			tx, err := variAndFun.Create2Deploy(auth, binBytes, big.NewInt(1))
+			Expect(err).To(BeNil())
+			_, err = tests.WaitTxMined(goSDK, tx)
+			Expect(err).To(BeNil())
+
+			addr, err := variAndFun.GetContractAddr(auth)
+			Expect(err).To(BeNil())
+			exist, err := variAndFun.TestExist(auth, addr)
+			Expect(err).To(BeNil())
+			Expect(exist).To(Equal(true))
+
+			variAndFunOrigin = contracts.NewVariAndFunOrigin(goSDK, addr)
+
+			nonce++
+			auth = sdk.AccountBase{Nonce: nonce, PrivKey: admin.Privkey}
+
+			_, err = variAndFunOrigin.TestSelfdestruct(auth)
+			Expect(err).To(BeNil())
+
+			time.Sleep(2 * time.Second)
+			exist, err = variAndFun.TestExist(auth, addr)
+			Expect(err).To(BeNil())
+			Expect(exist).To(Equal(false))
+
+			nonce++
+			auth = sdk.AccountBase{Nonce: nonce, PrivKey: admin.Privkey}
+
+			tx, err = variAndFun.Create2Deploy(auth, binBytes, big.NewInt(1))
+			Expect(err).To(BeNil())
+			_, err = tests.WaitTxMined(goSDK, tx)
+			Expect(err).To(BeNil())
+
+			addrNew, err := variAndFun.GetContractAddr(auth)
+			Expect(err).To(BeNil())
+			Expect(addrNew).To(Equal(addr))
+
+			exist, err = variAndFun.TestExist(auth, addr)
+			Expect(err).To(BeNil())
+			Expect(exist).To(Equal(true))
+		})
 	})
 
 	Context("VariAndFunOrigin", func() {
@@ -668,7 +715,7 @@ var _ = Describe("Tests Contracts", func() {
 
 			nonce++
 			auth.Nonce = nonce
-			tx, variAndFunOrigin, err = contracts.DeployVariAndFunOrigin(goSDK, auth, variAndFun.GetAddress())
+			tx, variAndFunOrigin, err = contracts.DeployVariAndFunOrigin(goSDK, auth)
 			Expect(err).To(BeNil())
 			_, err = tests.WaitTxMined(goSDK, tx.Hex())
 			Expect(err).To(BeNil())
@@ -678,7 +725,7 @@ var _ = Describe("Tests Contracts", func() {
 			nonce++
 			auth := sdk.AccountBase{Nonce: nonce, PrivKey: acc.Privkey}
 
-			addr, err := variAndFunOrigin.GetOrigin(auth)
+			addr, err := variAndFunOrigin.GetOrigin(auth, variAndFun.GetAddress())
 			addrStr := strings.ToUpper(addr.String())
 			if strings.Index(addrStr, "0X") == 0 {
 				addrStr = addrStr[2:]
@@ -701,7 +748,7 @@ var _ = Describe("Tests Contracts", func() {
 			Expect(err).To(BeNil())
 
 			time.Sleep(2 * time.Second)
-			addr, err := variAndFunOrigin.GetOrigin(auth)
+			addr, err := variAndFunOrigin.GetOrigin(auth, variAndFun.GetAddress())
 			Expect(err).To(BeNil())
 			Expect(addr).To(Equal(common.Address{}))
 		})
