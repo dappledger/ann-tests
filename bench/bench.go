@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	`math/rand`
 	"os"
 	"os/signal"
 	"sync"
@@ -51,12 +52,22 @@ func (b *Bench) Running() {
 	b.stat()
 }
 
+func randMS()time.Duration{
+	s :=rand.NewSource(time.Now().UnixNano())
+	r:= rand.New(s).Int31n(1000*1000)
+	return time.Duration(r)*time.Microsecond
+}
+
 func (b *Bench) startWorkers(worker int) {
-	if b.dbg {
-		fmt.Println("worker(", worker, ") start...")
-	}
+	time.Sleep(time.Second+randMS())
 	sleep := b.calcSleep()
-	for i := 0; i < b.total1Thread; i++ {
+	start:= time.Now().UnixNano()
+	if b.dbg {
+		tmp:= int64(sleep/time.Millisecond)
+		fmt.Printf("worker_%d start...\n\tsleep %d'millsec once call\n",worker,tmp)
+	}
+	i:=0
+	for i = 0; i < b.total1Thread; i++ {
 		if atomic.LoadInt32(&b.stop) == 1 {
 			break
 		}
@@ -64,7 +75,12 @@ func (b *Bench) startWorkers(worker int) {
 		time.Sleep(sleep)
 	}
 	if b.dbg {
-		fmt.Println("worker(", worker, ") exit...")
+		cost := time.Now().UnixNano() - start
+		cost /= int64(time.Second)
+		if cost <=0 {
+			cost = 1
+		}
+		fmt.Printf("work(%d,%d) cost %d's, exit...\n",worker,i,cost)
 	}
 }
 
@@ -83,7 +99,7 @@ func (b *Bench) calcSleep() time.Duration {
 	if b.Ntps > 1000 {
 		return time.Millisecond
 	}
-	return time.Duration(1000 / b.Ntps)
+	return time.Duration(1000 / b.Ntps)*time.Millisecond
 }
 
 func (b *Bench) stat() {

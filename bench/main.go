@@ -5,6 +5,7 @@ import (
 	"fmt"
 	//"math/big"
 	"strings"
+	`sync/atomic`
 
 	sdk "github.com/dappledger/ann-go-sdk"
 )
@@ -15,17 +16,30 @@ var (
 	contractId string
 )
 
-func genAccBase(cli *sdk.GoSDK) sdk.AccountBase {
-	acc, _ := cli.AccountCreate()
+func genAccBase(cli *sdk.GoSDK) (sdk.AccountBase,uint32) {
+	var idx uint32
+	idx=atomic.AddUint32(&accidx,1)%uint32(len(accounts))
+	acc:=accounts[idx]
+	if acc.Address == ""{
+		acc,_=cli.AccountCreate()
+		accounts[idx] = acc
+	}
+
+	n,err:=cli.PendingNonce(acc.Address)
+	if err != nil {
+		fmt.Printf("%s get nonce err:%s\n",acc.Privkey,err.Error())
+	}
+	//fmt.Println(acc.Address," nonce=",n)
 	return sdk.AccountBase{
 		acc.Privkey,
-		0,
-	}
+		n,
+	},idx
 }
 
 func doTask_setValue(dosync bool, cli *sdk.GoSDK) {
+	ab,_:=genAccBase(cli)
 	req := sdk.Tx{
-		AccountBase: genAccBase(cli),
+		AccountBase: ab,
 		To:          "4F453058FAACAFC4D9AC17E2B5BEE161EE66145D",
 		Payload:     "1",
 	}
@@ -48,8 +62,9 @@ func doTask_getValue(hash string, cli *sdk.GoSDK) {
 }
 
 func doTask_contractWrite(dosync bool, cli *sdk.GoSDK) error {
+	ab,idx:=genAccBase(cli)
 	req := sdk.ContractMethod{
-		AccountBase: genAccBase(cli),
+		AccountBase:ab ,
 		ABI:         abi,
 		Contract:    contractId,
 		Method:      "setVal",
@@ -61,12 +76,21 @@ func doTask_contractWrite(dosync bool, cli *sdk.GoSDK) error {
 	} else {
 		_, err = cli.ContractAsync(&req)
 	}
+	if err != nil && *debug{
+		if strings.Contains(err.Error(),"evm tx pool waiting queue is full"){
+			fmt.Printf("contract write err(%s;%d):evm tx pool waiting queue is full\n",req.AccountBase.PrivKey,req.AccountBase.Nonce)
+			accounts[idx].Address = ""
+		}else{
+			fmt.Printf("contract write err(%s;%d):%s\n",req.AccountBase.PrivKey,req.AccountBase.Nonce,err.Error())
+		}
+	}
 	return err
 }
 
 func doTask_contractRead(addr string, cli *sdk.GoSDK) {
+	ab,_:=genAccBase(cli)
 	req := sdk.ContractMethod{
-		AccountBase: genAccBase(cli),
+		AccountBase: ab,
 		ABI:         abi,
 		Contract:    addr,
 		Method:      "getVal",
@@ -85,12 +109,12 @@ func doTask_contractRead(addr string, cli *sdk.GoSDK) {
 }
 
 var (
-	tps     = flag.Int("tps", 100, "tps for client<n msg in 1 sec>")
-	nsec    = flag.Int("cost", 100, "run n second")
-	nthread = flag.Int("nt", 10, "thread of number")
-	rpcarg  = flag.String("rpcaddrs", "172.28.152.153:46657,172.28.152.154:46657,172.28.152.155:46657,172.28.152.156:46657", "address of chain;seperate by ',' ") //default value = "172.28.152.153:46657,172.28.152.154:46657,172.28.152.155:46657,172.28.152.156:46657"
+	tps     = flag.Int("tps", 1, "tps for client<n msg in 1 sec>")
+	nsec    = flag.Int("cost", -1, "run n second;'-1' for allways running...")
+	nthread = flag.Int("nt", 1, "thread of number")
+	rpcarg  = flag.String("rpcaddrs", "172.28.152.153:46667,172.28.152.154:46667,172.28.152.155:46667,172.28.152.156:46667", "address of chain;seperate by ',' ") //default value = "172.28.152.153:46657,172.28.152.154:46657,172.28.152.155:46657,172.28.152.156:46657"
 	dosync  = flag.Bool("sync", false, "if call contract-write/setvalue,should sync or async;default is 'async'")
-	dotype  = flag.String("dotype", "", "witch to do;default is 'set' for set value;\n\t'cwrite' : contract write;")
+	dotype  = flag.String("dotype", "", "witch to do;\n\t'cwrite' : contract write;")
 	//dotype  = flag.String("dotype", "", "witch to do;default is 'set' for set value;\n\t'set' : set value;\n\t'get' : get value by hash;\n\t'cwrite' : contract write;\n\t'cread' : contract read;")
 	//gethash = flag.String("hash", "", "if get value;set hash")
 	//caddr   = flag.String("caddr", "", "address of contract for contract read")
@@ -99,6 +123,8 @@ var (
 
 var (
 	rpcClis []*sdk.GoSDK
+	accounts []sdk.Account
+	accidx uint32
 )
 
 const (
@@ -107,6 +133,7 @@ const (
 	dt_cwrite = "cwrite"
 	dt_cread  = "cread"
 )
+
 
 func Init() {
 	var rpcaddrs []string
@@ -121,13 +148,31 @@ func Init() {
 		cli := sdk.New(addr, sdk.ZaCryptoType)
 		rpcClis = append(rpcClis, cli)
 	}
+	total:=10*(*tps)*(*nthread)
+	if *nsec > 0 {
+		//total =total* (*nsec)
+	}else{
+		total *=10
+	}
+	for len(accounts) < total{
+		acc,err:=rpcClis[0].AccountCreate()
+		if err != nil {
+			continue
+		}
+		accounts = append(accounts,acc)
+	}
 	//
 	var output = "\n"
 	if *debug {
 		output += "\n\n-----------------> current is debug module <-------------------\n\n"
 	}
-	output = fmt.Sprintf("tps=%d;nsec=%d;nthread=%d;\n", *tps, *nsec, *nthread)
+	app:=""
+	if *nsec <= 0 {
+		app= "(run always)"
+	}
+	output = fmt.Sprintf("tps=%d;nsec=%d%s;nthread=%d;\n", *tps, *nsec,app, *nthread)
 	output += fmt.Sprintf("rpcaddr=%s;\n", *rpcarg)
+	output += fmt.Sprintf("gen %d accounts\n",len(accounts))
 	switch *dotype {
 	case dt_set:
 		if *dosync {
@@ -145,8 +190,9 @@ func Init() {
 	// 	}
 	case dt_cwrite:
 		//创建合约;
+		ab,_:=genAccBase(rpcClis[0])
 		var arg = sdk.ContractCreate{
-			AccountBase: genAccBase(rpcClis[0]),
+			AccountBase: ab,
 			ABI:         abi,
 			Code:        byteCode,
 		}
@@ -171,6 +217,7 @@ func Init() {
 	default:
 		panic("pleas set 'dotype' first")
 	}
+
 	fmt.Println(output)
 }
 
@@ -218,11 +265,17 @@ func dotask(b *Bench) {
 func main() {
 	flag.Parse()
 	Init()
+	total:= 0
+	if *nsec <= 0 {
+		total = 0x7fffffff
+	}else{
+		total = (*nsec) * (*tps)
+	}
 	bench := Bench{
 		BenchBase: BenchBase{
 			Nthread:      *nthread,
 			Ntps:         *tps,
-			total1Thread: (*nsec) * (*tps),
+			total1Thread: total,
 			Do: func(idx int) BCRet {
 				return BCSuccess
 			},
