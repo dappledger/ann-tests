@@ -127,12 +127,12 @@ var _ = Describe("Tests Payload", func() {
 			Expect(err).To(BeNil())
 			Expect(value).To(Equal([]byte("value1")))
 
-			//check duplicate key
+			//check update
 			nonce++
 			kvTx.Nonce = nonce
 			_, err = goSDK.Put(kvTx)
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).Should(ContainSubstring("duplicate key"))
+			Expect(err).To(BeNil())
+			//Expect(err.Error()).Should(ContainSubstring("duplicate key"))
 		})
 
 		It("get with prefix", func() {
