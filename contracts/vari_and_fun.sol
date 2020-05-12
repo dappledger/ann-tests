@@ -1,4 +1,4 @@
-pragma solidity ^0.4.25;
+pragma solidity ^0.5.0;
 
 // Test special variables and functions
 contract VariAndFun {
@@ -43,7 +43,7 @@ contract VariAndFun {
      *
      * Complete calldata
      */
-    function getMsgData() public pure returns (bytes) {
+    function getMsgData() public pure returns (bytes memory) {
         return msg.data;
     }
 
@@ -112,7 +112,7 @@ contract VariAndFun {
      *
      * Compute the Ethereum-SHA-3 (Keccak-256) hash of the (tightly packed) arguments
      */
-    function testKeccak256(bytes _data) public pure returns (bytes32) {
+    function testKeccak256(bytes memory _data) public pure returns (bytes32) {
         return keccak256(_data);
     }
 
@@ -121,7 +121,7 @@ contract VariAndFun {
      *
      * Compute the SHA-256 hash of the (tightly packed) arguments
      */
-    function testSHA256(bytes _data) public pure returns (bytes32) {
+    function testSHA256(bytes memory _data) public pure returns (bytes32) {
         return sha256(_data);
     }
 
@@ -130,7 +130,7 @@ contract VariAndFun {
      *
      * Compute RIPEMD-160 hash of the (tightly packed) arguments
      */
-    function testRipemd160(bytes _data) public pure returns (bytes20) {
+    function testRipemd160(bytes memory _data) public pure returns (bytes20) {
         return ripemd160(_data);
     }
 
@@ -139,10 +139,8 @@ contract VariAndFun {
      *
      * Recover the address associated with the public key from elliptic curve signature or return zero on error.
      */
-    function testEcrecover(bytes32 _operationHash, bytes _signature) public pure returns (address) {
-        if (_signature.length != 65) {
-            return;
-        }
+    function testEcrecover(bytes32 _operationHash, bytes memory _signature) public pure returns (address) {
+        require (_signature.length == 65);
 
         // We need to unpack the signature, which is given as an array of 65 bytes (like eth.sign)
         bytes32 r;
@@ -183,26 +181,67 @@ contract VariAndFun {
      * The current contract, explicitly convertible to Address.
      */
     function getThis() public view returns (address) {
-        return this;
+        return address(this);
+    }
+
+    address create2Addr;
+
+    /**
+     * Test create2
+     *
+     * create2(v, p, n, s)
+     * Create new contract with code mem[p…(p+n)) at address
+     * keccak256(0xff . this . s . keccak256(mem[p…(p+n))) and
+     * send v wei and return the new address, where 0xff is a
+     * 8 byte value, this is the current contract’s address as
+     * a 20 byte value and s is a big-endian 256-bit value.
+     */
+    function create2Deploy(bytes memory _code, uint256 _salt) public {
+        address addr;
+        assembly {
+            addr := create2(0, add(_code, 0x20), mload(_code), _salt)
+            if iszero(extcodesize(addr)) {
+                revert(0, 0)
+            }
+        }
+
+        create2Addr = addr;
+    }
+
+    /**
+     * Get create2Addr
+     */
+    function getContractAddr() public view returns (address) {
+        return create2Addr;
+    }
+
+    /**
+     * Test extcodesize
+     *
+     * Size of the code at address a.
+     */
+    function testExist(address _addr) public view returns(bool) {
+        uint256 result;
+
+        assembly {
+            result := extcodesize(_addr)
+        }
+
+        return result > 0 ;
     }
 }
 
 contract VariAndFunOrigin {
 
-    VariAndFun vf;
     address admin;
-
-    constructor (VariAndFun _addr) public {
-        vf = _addr;
-        admin = msg.sender;
-    }
 
     /**
      * Test tx.origin
      *
      * Sender of the transaction (full call chain)
      */
-    function getOrigin() public view returns (address) {
+    function getOrigin(address _addr) public view returns (address) {
+        VariAndFun vf = VariAndFun(_addr);
         return vf.getOrigin();
     }
 
@@ -212,6 +251,6 @@ contract VariAndFunOrigin {
      * Destroy the current contract, sending its funds to the given Address.
      */
     function testSelfdestruct() public {
-        selfdestruct(admin);
+        selfdestruct(msg.sender);
     }
 }
